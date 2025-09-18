@@ -4,7 +4,7 @@ import Image from "next/image";
 import ReviewForm from "@/components/ReviewForm";
 import ReviewList from "@/components/ReviewList";
 
-interface Book {
+type Book = {
   id: string;
   title: string;
   authors?: string[];
@@ -12,35 +12,34 @@ interface Book {
   publisher?: string;
   description?: string;
   image?: string;
-}
-
-interface Review {
+};
+type Review = {
   id: string;
   bookId: string;
   rating: number;
-  comment: string;
   displayName: string;
   score: number;
   text: string;
-  // Agrega más campos si tu API los devuelve
+};
+
+function getUserId() {
+  if (typeof window === "undefined") return "anon";
+  let id = localStorage.getItem("bv:uid");
+  if (!id) {
+    id = crypto.randomUUID();
+    localStorage.setItem("bv:uid", id);
+  }
+  return id;
 }
 
 async function fetchBook(id: string): Promise<Book> {
-  const res = await fetch(
-    `${process.env.NEXT_PUBLIC_API_URL}/api/books/${id}`,
-    { cache: "no-store" }
-  );
+  const res = await fetch(`/api/books/${id}`, { cache: "no-store" });
   if (!res.ok) throw new Error("Error cargando el libro");
   return res.json();
 }
-
 async function fetchReviews(id: string): Promise<Review[]> {
-  const res = await fetch(
-    `${process.env.NEXT_PUBLIC_API_URL}/api/reviews?bookId=${id}`,
-    { cache: "no-store" }
-  );
-  if (!res.ok) return [];
-  return res.json();
+  const res = await fetch(`/api/reviews?bookId=${id}`, { cache: "no-store" });
+  return res.ok ? res.json() : [];
 }
 
 export default function BookDetailPage({ params }: { params: { id: string } }) {
@@ -50,20 +49,18 @@ export default function BookDetailPage({ params }: { params: { id: string } }) {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    async function fetchData() {
-      setLoading(true);
-      setError("");
+    (async () => {
       try {
-        const b = await fetchBook(params.id);
-        setBook(b);
-        const r = await fetchReviews(params.id);
-        setReviews(r);
+        setLoading(true);
+        setError("");
+        setBook(await fetchBook(params.id));
+        setReviews(await fetchReviews(params.id));
       } catch (e) {
         setError(e instanceof Error ? e.message : "Error desconocido");
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
-    }
-    fetchData();
+    })();
   }, [params.id]);
 
   if (loading) return <p>Cargando...</p>;
@@ -75,27 +72,21 @@ export default function BookDetailPage({ params }: { params: { id: string } }) {
     text: string;
     displayName: string;
   }) {
-    if (!book) return;
     await fetch("/api/reviews", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...data, bookId: book.id }),
+      headers: { "Content-Type": "application/json", "X-User-Id": getUserId() },
+      body: JSON.stringify({ ...data, bookId: book!.id }),
     });
-    // Recargar reseñas después de enviar
-    const updated = await fetchReviews(book.id);
-    setReviews(updated);
+    setReviews(await fetchReviews(book!.id));
   }
 
   async function handleVote(reviewId: string, value: 1 | -1) {
-    if (!book) return;
     await fetch(`/api/reviews/${reviewId}/vote`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", "X-User-Id": getUserId() },
       body: JSON.stringify({ value }),
     });
-    // Recargar reseñas después de votar
-    const updated = await fetchReviews(book.id);
-    setReviews(updated);
+    setReviews(await fetchReviews(book!.id));
   }
 
   return (
