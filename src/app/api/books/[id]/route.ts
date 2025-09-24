@@ -3,10 +3,11 @@ import { NextRequest } from "next/server";
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  ctx: { params: Promise<{ id: string }> }
 ) {
   try {
-    const result = await getBook(params.id);
+    const { id } = await ctx.params;
+    const result = await getBook(id);
     return Response.json(result);
   } catch (e) {
     if (e instanceof Error) {

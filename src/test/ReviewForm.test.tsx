@@ -9,7 +9,7 @@ describe("ReviewForm", () => {
     const user = userEvent.setup();
     const onSubmit = vi.fn().mockResolvedValue(undefined);
 
-    render(<ReviewForm bookId="b1" onSubmit={onSubmit} />);
+    render(<ReviewForm onSubmit={onSubmit} />);
 
     const stars = screen.getAllByRole("radio");
     await user.click(stars[2]);
@@ -27,7 +27,7 @@ describe("ReviewForm", () => {
     const user = userEvent.setup();
     const onSubmit = vi.fn().mockResolvedValue(undefined);
 
-    render(<ReviewForm bookId="b1" onSubmit={onSubmit} />);
+    render(<ReviewForm onSubmit={onSubmit} />);
 
     await user.type(screen.getByLabelText(/reseña/i), "no");
     await user.click(screen.getByRole("button", { name: /enviar reseña/i }));

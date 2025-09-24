@@ -13,6 +13,7 @@ type Book = {
   description?: string;
   image?: string;
 };
+
 type Review = {
   id: string;
   bookId: string;
@@ -37,6 +38,7 @@ async function fetchBook(id: string): Promise<Book> {
   if (!res.ok) throw new Error("Error cargando el libro");
   return res.json();
 }
+
 async function fetchReviews(id: string): Promise<Review[]> {
   const res = await fetch(`/api/reviews?bookId=${id}`, { cache: "no-store" });
   return res.ok ? res.json() : [];
@@ -53,7 +55,8 @@ export default function BookDetailPage({ params }: { params: { id: string } }) {
       try {
         setLoading(true);
         setError("");
-        setBook(await fetchBook(params.id));
+        const b = await fetchBook(params.id);
+        setBook(b);
         setReviews(await fetchReviews(params.id));
       } catch (e) {
         setError(e instanceof Error ? e.message : "Error desconocido");
@@ -72,21 +75,35 @@ export default function BookDetailPage({ params }: { params: { id: string } }) {
     text: string;
     displayName: string;
   }) {
+    if (!book) return;
+    const bookId = book.id;
+
     await fetch("/api/reviews", {
       method: "POST",
-      headers: { "Content-Type": "application/json", "X-User-Id": getUserId() },
-      body: JSON.stringify({ ...data, bookId: book!.id }),
+      headers: {
+        "Content-Type": "application/json",
+        "x-user-id": getUserId(),
+      },
+      body: JSON.stringify({ ...data, bookId }),
     });
-    setReviews(await fetchReviews(book!.id));
+
+    setReviews(await fetchReviews(bookId));
   }
 
   async function handleVote(reviewId: string, value: 1 | -1) {
+    if (!book) return;
+    const bookId = book.id;
+
     await fetch(`/api/reviews/${reviewId}/vote`, {
       method: "POST",
-      headers: { "Content-Type": "application/json", "X-User-Id": getUserId() },
+      headers: {
+        "Content-Type": "application/json",
+        "x-user-id": getUserId(),
+      },
       body: JSON.stringify({ value }),
     });
-    setReviews(await fetchReviews(book!.id));
+
+    setReviews(await fetchReviews(bookId));
   }
 
   return (
@@ -111,7 +128,9 @@ export default function BookDetailPage({ params }: { params: { id: string } }) {
           <p>{book.description}</p>
         </div>
       </div>
-      <ReviewForm bookId={book.id} onSubmit={handleReviewSubmit} />
+
+      {/* SIN bookId en el form */}
+      <ReviewForm onSubmit={handleReviewSubmit} />
       <ReviewList items={reviews} onVote={handleVote} />
     </section>
   );
