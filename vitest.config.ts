@@ -1,16 +1,19 @@
 // vitest.config.ts
 import { defineConfig } from "vitest/config";
-import path from "node:path";
+import { fileURLToPath } from "url";
 
 export default defineConfig({
-  resolve: {
-    alias: {
-      "@": path.resolve(__dirname, "src"), // permite import "@/..."
-    },
-  },
   test: {
     environment: "jsdom",
     globals: true,
-    setupFiles: "./src/test/setup.ts",
+    setupFiles: ["src/test/setup.tsx"],
+    include: ["src/test/**/*.test.{ts,tsx}"],
+  },
+  resolve: {
+    alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) },
+  },
+  esbuild: {
+    jsx: "automatic",
+    jsxImportSource: "react",
   },
 });
