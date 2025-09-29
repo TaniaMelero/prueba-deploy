@@ -15,6 +15,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Necesario para leer package.json (VERSION)
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
       - name: Compute image name (lowercase)
         run: echo "IMAGE_NAME=ghcr.io/${GITHUB_REPOSITORY,,}" >> $GITHUB_ENV
 

@@ -2,17 +2,23 @@
 import { useState } from "react";
 import StarRating from "./StarRating";
 
-type Props = {
-  onSubmit: (r: { rating: number; text: string; displayName: string }) => Promise<void>;
+type ReviewPayload = {
+  rating: number;
+  text: string;
+  displayName: string;
 };
 
-export default function ReviewForm({ onSubmit }: Props) {
+export default function ReviewForm({
+  onSubmit,
+}: {
+  onSubmit: (r: ReviewPayload) => Promise<void>;
+}) {
   const [displayName, setDisplayName] = useState("Anónimo");
-  const [rating, setRating] = useState(5);
+  const [rating, setRating] = useState<number>(5);
   const [text, setText] = useState("");
   const [error, setError] = useState("");
 
-  async function handle(e: React.FormEvent) {
+  async function handle(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (text.trim().length < 3) {
       setError("La reseña es muy corta");
@@ -36,17 +42,32 @@ export default function ReviewForm({ onSubmit }: Props) {
     >
       <label>
         Tu nombre visible
-        <input value={displayName} onChange={(e) => setDisplayName(e.target.value)} />
+        <input
+          aria-label="nombre visible"
+          value={displayName}
+          onChange={(e) => setDisplayName(e.target.value)}
+          required
+        />
       </label>
+
       <label>
         Calificación
         <StarRating value={rating} onChange={setRating} />
       </label>
+
       <label>
         Reseña
-        <textarea value={text} onChange={(e) => setText(e.target.value)} />
+        <textarea
+          aria-label="reseña"
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          required
+          minLength={3}
+        />
       </label>
+
       {error && <div style={{ color: "red" }}>{error}</div>}
+
       <button type="submit">Enviar reseña</button>
     </form>
   );

@@ -1,35 +1,35 @@
 # BookVerse – Next.js + CI/CD
 
-Plataforma de descubrimiento y reseñas de libros: buscá por título/autor/ISBN (Google Books), mirá detalles y dejá reseñas con votación 👍/👎.
+Plataforma de **descubrimiento y reseñas de libros**: buscá por título/autor/ISBN (Google Books), mirá detalles y dejá reseñas con votación 👍/👎.
 
-**Demo producción:** <https://<tu-app>.vercel.app>  
-**Repositorio:** <https://github.com/<TU_USUARIO>/<TU_REPO>>
+**Demo producción:** https://TU-APP.vercel.app  
+**Repositorio:** https://github.com/TU_USUARIO/TU_REPO
 
 ---
 
 ## 🧰 Stack
 
-- Next.js 15 (App Router) · React 19
-- Zod (validación)
-- Vitest + Testing Library (tests)
-- Vercel (deploy)
-- GitHub Actions (CI)
-- Docker (multi-stage) + GHCR
+- **Next.js 15 (App Router)** + **React 19**
+- **Zod** para validación
+- **Vitest + Testing Library** (unit tests)
+- **Vercel** (deploy)
+- **GitHub Actions** (CI)
+- **Docker (multi-stage)** + **GitHub Container Registry (GHCR)**
 
 ---
 
-## ▶️ Ejecutar local
+## ▶️ Correr local
 
-Requisitos: Node.js 20+
+Requisitos: **Node.js 20+**
 
 ```bash
-# instalar deps
+# instalar dependencias
 npm ci
 
 # desarrollo
-npm run dev   # http://localhost:3000
+npm run dev         # abre en http://localhost:3000
 
-# type-check y build prod
+# chequeo de tipos y build de producción
 npm run typecheck
 npm run build
-npm start     # http://localhost:3000
+npm start           # sirve la app en http://localhost:3000
