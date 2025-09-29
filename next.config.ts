@@ -1,12 +1,16 @@
-// next.config.ts
-const nextConfig = {
+import type { NextConfig } from "next";
+
+const nextConfig: NextConfig = {
   images: {
     remotePatterns: [
-      { protocol: "https", hostname: "books.googleusercontent.com" },
-      { protocol: "https", hostname: "books.google.com" },
-      // algunos resultados vienen en http, permitimos por las dudas:
-      { protocol: "http", hostname: "books.google.com" },
+      { protocol: "https", hostname: "books.googleusercontent.com", pathname: "/**" },
+      { protocol: "https", hostname: "books.google.com", pathname: "/**" },
     ],
   },
+  output: "standalone", // <- para Docker
+  async redirects() {
+    return [{ source: "/", destination: "/search", permanent: false }]; // opcional
+  },
 };
+
 export default nextConfig;
