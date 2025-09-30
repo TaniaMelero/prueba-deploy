@@ -1,5 +1,3 @@
----
-
 ## ✅ CI/CD
 
 ![CI](https://github.com/TaniaMelero/prueba-deploy/actions/workflows/ci.yml/badge.svg)
