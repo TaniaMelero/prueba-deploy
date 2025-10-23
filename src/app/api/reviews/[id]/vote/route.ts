@@ -1,28 +1,20 @@
-import { ReviewService } from "@/services/reviewService";
-import { repoInstance } from "@/services/reviewRepoInstance";
-import { NextRequest } from "next/server";
+import { NextRequest } from 'next/server';
+import { getCol } from '@/lib/mongo';
+import { requireUser } from '@/lib/auth';
+import { Review, Vote } from '@/types/db';
 
-const service = new ReviewService(repoInstance);
+export async function DELETE(_req: NextRequest, { params }: { params: { id: string }}) {
+  const me = await requireUser();
+  if (!me) return Response.json({ error: 'No autenticado' }, { status: 401 });
 
-export async function POST(
-  req: NextRequest,
-  ctx: { params: Promise<{ id: string }> }
-) {
-  const { id } = await ctx.params;
+  const reviews = await getCol<Review>('reviews');
+  const r = await reviews.findOne({ _id: params.id });
+  if (!r) return Response.json({ error: 'No encontrada' }, { status: 404 });
+  if (r.userId !== me.uid) return Response.json({ error: 'Prohibido' }, { status: 403 });
 
-  const userId = req.headers.get("x-user-id") || "anon";
-  const { value } = await req.json();
+  await reviews.deleteOne({ _id: params.id });
+  const votes = await getCol<Vote>('votes');
+  await votes.deleteMany({ reviewId: params.id });
 
-  if (value !== 1 && value !== -1) {
-    return Response.json({ error: "value debe ser 1 o -1" }, { status: 400 });
-  }
-
-  try {
-    const updated = await service.vote(id, userId as string, value);
-    return Response.json(updated);
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    const code = msg.includes("no encontrada") ? 404 : 400;
-    return Response.json({ error: msg }, { status: code });
-  }
+  return Response.json({ ok: true });
 }

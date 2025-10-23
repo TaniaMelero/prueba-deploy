@@ -1,5 +1,6 @@
 "use client";
-import { useState, useEffect } from "react";
+
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import ReviewForm from "@/components/ReviewForm";
 import ReviewList from "@/components/ReviewList";
@@ -15,23 +16,17 @@ type Book = {
 };
 
 type Review = {
-  id: string;
+  _id?: string; // viene de Mongo
+  id?: string; // compat viejos datos
   bookId: string;
   rating: number;
   displayName: string;
   score: number;
   text: string;
+  createdAt: string;
 };
 
-function getUserId() {
-  if (typeof window === "undefined") return "anon";
-  let id = localStorage.getItem("bv:uid");
-  if (!id) {
-    id = crypto.randomUUID();
-    localStorage.setItem("bv:uid", id);
-  }
-  return id;
-}
+type Me = { _id: string; email: string; displayName: string } | null;
 
 async function fetchBook(id: string): Promise<Book> {
   const res = await fetch(`/api/books/${id}`, { cache: "no-store" });
@@ -47,17 +42,22 @@ async function fetchReviews(id: string): Promise<Review[]> {
 export default function BookDetailPage({ params }: { params: { id: string } }) {
   const [book, setBook] = useState<Book | null>(null);
   const [reviews, setReviews] = useState<Review[]>([]);
+  const [me, setMe] = useState<Me>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
+  // Cargar libro + reseñas
   useEffect(() => {
     (async () => {
       try {
         setLoading(true);
         setError("");
-        const b = await fetchBook(params.id);
+        const [b, r] = await Promise.all([
+          fetchBook(params.id),
+          fetchReviews(params.id),
+        ]);
         setBook(b);
-        setReviews(await fetchReviews(params.id));
+        setReviews(r);
       } catch (e) {
         setError(e instanceof Error ? e.message : "Error desconocido");
       } finally {
@@ -65,6 +65,14 @@ export default function BookDetailPage({ params }: { params: { id: string } }) {
       }
     })();
   }, [params.id]);
+
+  // Cargar usuario autenticado
+  useEffect(() => {
+    fetch("/api/auth/me")
+      .then((r) => (r.ok ? r.json() : null))
+      .then(setMe)
+      .catch(() => setMe(null));
+  }, []);
 
   if (loading) return <p>Cargando...</p>;
   if (error) return <p>{error}</p>;
@@ -75,15 +83,12 @@ export default function BookDetailPage({ params }: { params: { id: string } }) {
     text: string;
     displayName: string;
   }) {
-    if (!book) return;
-    const bookId = book.id;
+    if (!book) return; // ← narrowing
+    const bookId = book.id; // ← ya no es null aquí
 
     await fetch("/api/reviews", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-user-id": getUserId(),
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ...data, bookId }),
     });
 
@@ -91,15 +96,12 @@ export default function BookDetailPage({ params }: { params: { id: string } }) {
   }
 
   async function handleVote(reviewId: string, value: 1 | -1) {
-    if (!book) return;
+    if (!book) return; // ← narrowing
     const bookId = book.id;
 
     await fetch(`/api/reviews/${reviewId}/vote`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-user-id": getUserId(),
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ value }),
     });
 
@@ -129,9 +131,22 @@ export default function BookDetailPage({ params }: { params: { id: string } }) {
         </div>
       </div>
 
-      {/* SIN bookId en el form */}
-      <ReviewForm onSubmit={handleReviewSubmit} />
-      <ReviewList items={reviews} onVote={handleVote} />
+      {me ? (
+        <ReviewForm onSubmit={handleReviewSubmit} />
+      ) : (
+        <p>Iniciá sesión para dejar una reseña y votar.</p>
+      )}
+
+      <ReviewList
+        items={reviews.map((r) => ({
+          id: r._id || r.id!, // compat
+          displayName: r.displayName,
+          score: r.score,
+          rating: r.rating,
+          text: r.text,
+        }))}
+        onVote={handleVote}
+      />
     </section>
   );
 }

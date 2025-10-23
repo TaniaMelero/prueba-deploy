@@ -1,5 +1,5 @@
-import { searchBooks } from "@/services/googleBooks";
 import { NextRequest } from "next/server";
+import { searchBooks } from "@/services/googleBooks";
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
