@@ -22,3 +22,13 @@ export type Vote = {
   userId: string;       // id de usuario (string)
   value: 1 | -1;
 };
+
+export type Favorite = {
+  _id?: string;
+  userId: string;
+  bookId: string;
+  title: string;
+  image?: string;
+  createdAt: string;
+};
+

@@ -16,8 +16,8 @@ type Book = {
 };
 
 type Review = {
-  _id?: string; // viene de Mongo
-  id?: string; // compat viejos datos
+  _id?: string;
+  id?: string;
   bookId: string;
   rating: number;
   displayName: string;
@@ -43,6 +43,9 @@ export default function BookDetailPage({ params }: { params: { id: string } }) {
   const [book, setBook] = useState<Book | null>(null);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [me, setMe] = useState<Me>(null);
+  const [isFav, setIsFav] = useState(false);
+  const [favBusy, setFavBusy] = useState(false);
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -74,6 +77,24 @@ export default function BookDetailPage({ params }: { params: { id: string } }) {
       .catch(() => setMe(null));
   }, []);
 
+  // Chequear favoritos
+  useEffect(() => {
+    (async () => {
+      if (!me || !book) {
+        setIsFav(false);
+        return;
+      }
+      try {
+        const res = await fetch("/api/favorites", { cache: "no-store" });
+        if (!res.ok) return setIsFav(false);
+        const items: Array<{ bookId: string }> = await res.json();
+        setIsFav(items.some((f) => f.bookId === book.id));
+      } catch {
+        setIsFav(false);
+      }
+    })();
+  }, [me, book]);
+
   if (loading) return <p>Cargando...</p>;
   if (error) return <p>{error}</p>;
   if (!book) return <p>No se encontró el libro.</p>;
@@ -83,29 +104,53 @@ export default function BookDetailPage({ params }: { params: { id: string } }) {
     text: string;
     displayName: string;
   }) {
-    if (!book) return; // ← narrowing
-    const bookId = book.id; // ← ya no es null aquí
-
+    const bookId = params.id; // ✅ usar el id de la URL
     await fetch("/api/reviews", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ...data, bookId }),
     });
-
     setReviews(await fetchReviews(bookId));
   }
 
   async function handleVote(reviewId: string, value: 1 | -1) {
-    if (!book) return; // ← narrowing
-    const bookId = book.id;
-
+    const bookId = params.id; // ✅ usar el id de la URL
     await fetch(`/api/reviews/${reviewId}/vote`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ value }),
     });
-
     setReviews(await fetchReviews(bookId));
+  }
+
+  async function addFavorite() {
+    if (!me || !book) return;
+    try {
+      setFavBusy(true);
+      await fetch("/api/favorites", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          bookId: book.id,
+          title: book.title,
+          image: book.image,
+        }),
+      });
+      setIsFav(true);
+    } finally {
+      setFavBusy(false);
+    }
+  }
+
+  async function removeFavorite() {
+    if (!me || !book) return;
+    try {
+      setFavBusy(true);
+      await fetch(`/api/favorites?bookId=${book.id}`, { method: "DELETE" });
+      setIsFav(false);
+    } finally {
+      setFavBusy(false);
+    }
   }
 
   return (
@@ -128,6 +173,23 @@ export default function BookDetailPage({ params }: { params: { id: string } }) {
             {book.publishedDate} · {book.publisher}
           </small>
           <p>{book.description}</p>
+
+          {/* Botones de favoritos */}
+          <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+            {me ? (
+              isFav ? (
+                <button onClick={removeFavorite} disabled={favBusy}>
+                  {favBusy ? "Quitando..." : "✖ Quitar de favoritos"}
+                </button>
+              ) : (
+                <button onClick={addFavorite} disabled={favBusy}>
+                  {favBusy ? "Guardando..." : "⭐ Guardar en favoritos"}
+                </button>
+              )
+            ) : (
+              <small>Iniciá sesión para guardar en favoritos.</small>
+            )}
+          </div>
         </div>
       </div>
 
@@ -139,7 +201,7 @@ export default function BookDetailPage({ params }: { params: { id: string } }) {
 
       <ReviewList
         items={reviews.map((r) => ({
-          id: r._id || r.id!, // compat
+          id: r._id || r.id!,
           displayName: r.displayName,
           score: r.score,
           rating: r.rating,
