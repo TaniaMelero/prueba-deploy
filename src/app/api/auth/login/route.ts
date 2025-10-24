@@ -1,8 +1,8 @@
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { getCol } from "@/lib/mongo";
-import { User } from "@/types/db";
-import bcrypt from "bcryptjs";
+import type { User } from "@/types/db";
 import { setAuthCookie } from "@/lib/auth";
 
 const schema = z.object({
@@ -11,16 +11,19 @@ const schema = z.object({
 });
 
 export async function POST(req: NextRequest) {
-  const body = await req.json();
-  const { email, password } = schema.parse(body);
+  try {
+    const { email, password } = schema.parse(await req.json());
+    const users = await getCol<User>("users");
+    const u = await users.findOne({ email: email.toLowerCase() });
+    if (!u) return Response.json({ error: "Credenciales inválidas" }, { status: 401 });
 
-  const users = await getCol<User>("users");
-  const u = await users.findOne({ email: email.toLowerCase() });
-  if (!u) return Response.json({ error: "Credenciales inválidas" }, { status: 401 });
+    const ok = await bcrypt.compare(password, u.passwordHash!);
+    if (!ok) return Response.json({ error: "Credenciales inválidas" }, { status: 401 });
 
-  const ok = await bcrypt.compare(password, u.passwordHash);
-  if (!ok) return Response.json({ error: "Credenciales inválidas" }, { status: 401 });
-
-  await setAuthCookie({ uid: String(u._id), email: u.email, displayName: u.displayName });
-  return Response.json({ ok: true });
+    await setAuthCookie({ uid: String(u._id), email: u.email, displayName: u.displayName || u.email });
+    // devolvemos 200 simple
+    return NextResponse.json({ ok: true });
+  } catch (e) {
+    return Response.json({ error: e instanceof Error ? e.message : "Error" }, { status: 400 });
+  }
 }

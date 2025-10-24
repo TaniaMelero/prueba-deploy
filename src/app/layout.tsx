@@ -1,12 +1,14 @@
 import "./globals.css";
 import Link from "next/link";
-import { getUserFromRequest } from "@/lib/auth"; // server helper (lee cookie)
+import type { ReactNode } from "react";
+import { getUserFromRequest } from "@/lib/auth"; // server helper (lee cookie JWT)
 
 export default async function RootLayout({
   children,
 }: {
-  children: React.ReactNode;
+  children: ReactNode;
 }) {
+  // Server Component: podemos leer la cookie acá
   const me = await getUserFromRequest(); // null si no hay sesión
 
   return (
@@ -18,7 +20,7 @@ export default async function RootLayout({
             alignItems: "center",
             justifyContent: "space-between",
             padding: "12px 16px",
-            borderBottom: "1px solid #333",
+            borderBottom: "1px solid #eee",
           }}
         >
           <Link href="/search" style={{ fontWeight: 700 }}>
@@ -29,22 +31,24 @@ export default async function RootLayout({
             {me ? (
               <>
                 <span>Hola, {me.displayName}</span>
-                {/* Si no vas a hacer /me, podés quitar este link */}
-                <Link href="/me">Mi perfil</Link>
+                {/* Si agregás la página de perfil, habilitá el link de abajo */}
+                {/* <Link href="/me">Mi perfil</Link> */}
                 <form action="/api/auth/logout" method="post" style={{ margin: 0 }}>
                   <button type="submit">Salir</button>
                 </form>
               </>
             ) : (
               <>
-                <Link href="/login">Iniciar sesión</Link>
-                <Link href="/register">Registrarse</Link>
+                <Link href="/auth/login">Iniciar sesión</Link>
+                <Link href="/auth/register">Registrarse</Link>
               </>
             )}
           </nav>
         </header>
 
-        <main style={{ padding: 16 }}>{children}</main>
+        <main id="app-main" style={{ padding: 16 }}>
+          {children}
+        </main>
       </body>
     </html>
   );

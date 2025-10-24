@@ -1,50 +1,70 @@
-// src/app/api/reviews/route.ts
 import { NextRequest } from "next/server";
 import { z } from "zod";
 import { getCol } from "@/lib/mongo";
 import { Review, Vote } from "@/types/db";
 import { requireUser } from "@/lib/auth";
 
-const reviewSchema = z.object({
+export const reviewSchema = z.object({
   bookId: z.string().min(1),
   rating: z.number().int().min(1).max(5),
   text: z.string().trim().min(3),
   displayName: z.string().trim().min(2).max(40),
 });
 
-// GET ?bookId=... | ?userId=...
+// GET ?bookId=...  |  GET ?userId=me|<id>
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const bookId = searchParams.get("bookId")?.trim();
-  const userId = searchParams.get("userId")?.trim();
-
-  if (!bookId && !userId) {
-    return Response.json(
-      { error: "Falta bookId o userId" },
-      { status: 400 }
-    );
-  }
+  const userIdParam = searchParams.get("userId")?.trim();
 
   const reviewsCol = await getCol<Review>("reviews");
   const votesCol = await getCol<Vote>("votes");
 
-  const filter: Partial<Pick<Review, "bookId" | "userId">> = {};
-  if (bookId) filter.bookId = bookId;
-  if (userId) filter.userId = userId;
+  let query: Partial<Pick<Review, "bookId" | "userId">> | null = null;
 
-  const list = await reviewsCol
-    .find(filter)
-    .sort({ createdAt: -1 })
-    .toArray();
+  if (bookId) {
+    query = { bookId };
+  } else if (userIdParam) {
+    if (userIdParam === "me") {
+      const me = await requireUser();
+      if (!me) return Response.json({ error: "No autenticado" }, { status: 401 });
+      query = { userId: me.uid };
+    } else {
+      query = { userId: userIdParam };
+    }
+  }
 
-  // ids como string (votes.reviewId se guarda como string)
+  if (!query) {
+    return Response.json(
+      { error: "Faltan parámetros: use ?bookId=... o ?userId=me|<id>" },
+      { status: 400 }
+    );
+  }
+
+  const list = await reviewsCol.find(query).sort({ createdAt: -1 }).toArray();
+
+  // ids de reseñas en string
   const reviewIds = list.map((r) => String(r._id));
 
-  // sumar votos por reviewId
+  // SUMA de votos “tolerante a tipos”:
+  // 1) normaliza reviewId a string (si viene ObjectId lo pasa a string)
+  // 2) filtra sólo votos cuyo reviewIdNormalizado aparezca en reviewIds
+  // 3) agrupa por esa versión string
   const agg = await votesCol
     .aggregate<{ _id: string; score: number }>([
-      { $match: { reviewId: { $in: reviewIds } } },
-      { $group: { _id: "$reviewId", score: { $sum: "$value" } } },
+      {
+        $addFields: {
+          reviewIdStr: {
+            $cond: [
+              { $eq: [{ $type: "$reviewId" }, "objectId"] },
+              { $toString: "$reviewId" },
+              "$reviewId",
+            ],
+          },
+        },
+      },
+      { $match: { reviewIdStr: { $in: reviewIds } } },
+      { $group: { _id: "$reviewIdStr", score: { $sum: "$value" } } },
     ])
     .toArray();
 
@@ -54,22 +74,19 @@ export async function GET(req: NextRequest) {
     score: scoreById.get(String(r._id)) ?? 0,
   }));
 
-  // ordenar por score desc, luego fecha desc
   withScore.sort(
     (a, b) =>
-      (b.score - a.score) ||
-      (new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      b.score - a.score ||
+      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
   );
 
   return Response.json(withScore);
 }
 
-// POST (autenticado)
+// POST igual que ya lo tenías…
 export async function POST(req: NextRequest) {
   const me = await requireUser();
-  if (!me) {
-    return Response.json({ error: "No autenticado" }, { status: 401 });
-  }
+  if (!me) return Response.json({ error: "No autenticado" }, { status: 401 });
 
   try {
     const body = await req.json();
